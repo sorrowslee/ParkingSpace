@@ -85,9 +85,63 @@ function bindEvents() {
     document.getElementById('zoom-out').onclick = () => canvas.setZoom(canvas.getZoom() / 1.1);
     document.getElementById('zoom-reset').onclick = () => canvas.setZoom(1);
 
+    // Editor Search
+    document.getElementById('btn-editor-search').onclick = () => {
+        const id = document.getElementById('editor-search-input').value;
+        const slot = getAllSlots().find(s => s.data.id === id);
+        if (slot) {
+            highlightSlot(slot);
+        } else {
+            alert(`找不到車位：${id}`);
+        }
+    };
+
+    // Keyboard Shortcuts (Ctrl+C, Ctrl+V)
+    window.addEventListener('keydown', handleKeyPress);
+
     // Modal
     document.getElementById('btn-modal-cancel').onclick = closeModal;
     document.getElementById('btn-modal-save').onclick = saveSlotProperties;
+}
+
+let clipboard = null;
+
+function handleKeyPress(e) {
+    if (e.ctrlKey && e.key === 'c') {
+        const active = canvas.getActiveObject();
+        if (active && active.data?.type === 'slot') {
+            clipboard = active;
+        }
+    }
+
+    if (e.ctrlKey && e.key === 'v') {
+        if (clipboard) {
+            duplicateSlot(clipboard);
+        }
+    }
+
+    if (e.key === 'Delete') {
+        const active = canvas.getActiveObject();
+        if (active) canvas.remove(active);
+    }
+}
+
+function duplicateSlot(source) {
+    // Offset position for visibility
+    const x = source.left + 20;
+    const y = source.top + 20;
+    const angle = source.angle;
+
+    // Create new slot at offset, keeping the angle
+    createParkingSlot(x, y, angle);
+    const newSlot = canvas.getActiveObject();
+    
+    // Ensure ID is reset to 000
+    newSlot.data.id = '000';
+    const textObj = newSlot._objects.find(o => o.type === 'text');
+    textObj.set('text', `${newSlot.data.rating} 000`);
+    
+    canvas.renderAll();
 }
 
 function setMode(mode) {
