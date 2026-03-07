@@ -24,6 +24,10 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function tryRecoverSession() {
+    // If we're loading a specific map via URL, skip recovery
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('use')) return;
+
     const savedData = localStorage.getItem('parkingspace_backup');
     const savedName = localStorage.getItem('parkingspace_filename');
     
@@ -41,13 +45,13 @@ function bindEvents() {
     document.getElementById('btn-editor-mode').onclick = () => setMode('editor');
     document.getElementById('btn-lottery-mode').onclick = () => {
         setMode('lottery');
-        startLottery();
+        clearAllHighlights();
     };
 
-    // Tool Buttons
-    document.querySelectorAll('.tool-btn').forEach(btn => {
+    // Editor Tool Buttons
+    document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
         btn.onclick = () => {
-            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             currentTool = btn.dataset.tool;
             
@@ -58,6 +62,11 @@ function bindEvents() {
             }
         };
     });
+
+    // Initialize Lottery Buttons
+    if (typeof initLottery === 'function') {
+        initLottery();
+    }
 
     // Canvas Clicks for Creation/Interaction
     canvas.on('mouse:down', (opt) => {

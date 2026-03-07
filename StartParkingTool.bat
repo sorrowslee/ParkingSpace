@@ -34,8 +34,8 @@ echo 2. 啟動後會「自動開啟」您的預設瀏覽器。
 echo 3. 請保持此視窗開啟以維持地帆工具運作。
 echo.
 
-:: 啟動 http-server (穩定、不跳重新整理)
-call npx http-server -p 5500 -o --cors
+:: 啟動 http-server (穩定、不跳重新整理，關閉快取)
+call npx http-server -p 5500 -o -c-1 --cors
 
 pause
 
