@@ -57,18 +57,23 @@
 
             <!-- Lottery Controls -->
             <div id="lottery-controls" class="control-group">
-                <h3>即時狀態更新</h3>
-                <div class="lottery-input">
-                    <input type="text" id="slot-input" placeholder="輸入車位號碼 (如 237)" maxlength="3">
-                    <button id="btn-mark-occupied" class="action-btn primary">標記 X</button>
+                <h3>等級篩選 (顯示目前畫面)</h3>
+                <div class="tool-grid">
+                    <button id="btn-lottery-A" class="tool-btn rating-A">A級 車位</button>
+                    <button id="btn-lottery-B" class="tool-btn rating-B">B級 車位</button>
+                    <button id="btn-lottery-C" class="tool-btn rating-C">C級 車位</button>
+                    <button id="btn-lottery-D" class="tool-btn rating-D">D級 車位</button>
                 </div>
                 
-                <button id="btn-recommend" class="recommend-btn">
-                    <span class="sparkle">✨</span> 推薦最佳空位
-                </button>
+                <div class="action-grid" style="margin-top: 20px;">
+                    <button id="btn-lottery-clear" class="action-btn danger">清空地圖高亮</button>
+                </div>
 
-                <div id="recommendation-list" class="recommend-list">
-                    <!-- Recommended items will appear here -->
+                <div class="status-box" style="margin-top: 30px; font-size: 13px; color: var(--text-secondary); line-height: 1.6;">
+                    <p>💡 <b>提示：</b></p>
+                    <p>• 直接點擊車位可切換「預約/空置」。</p>
+                    <p>• 點擊等級按鈕會持久亮起該區塊車位。</p>
+                    <p>• 拖曳地圖後需重新點擊按鈕刷新區域。</p>
                 </div>
             </div>
         </aside>

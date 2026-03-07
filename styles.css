@@ -248,8 +248,17 @@ canvas {
     background: rgba(255,255,255,0.1);
 }
 
-.rec-item.rating-A { border-left-color: #fbbf24; }
-.rec-item.rating-B { border-left-color: #38bdf8; }
+.rec-item.rating-A, .tool-btn.rating-A { border-left: 4px solid #fbbf24; }
+.rec-item.rating-B, .tool-btn.rating-B { border-left: 4px solid #38bdf8; }
+.rec-item.rating-C, .tool-btn.rating-C { border-left: 4px solid #a855f7; }
+.rec-item.rating-D, .tool-btn.rating-D { border-left: 4px solid #94a3b8; }
+
+.status-box {
+    background: rgba(0,0,0,0.2);
+    padding: 16px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+}
 
 /* Modal */
 .modal {

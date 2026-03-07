@@ -340,7 +340,7 @@ async function exportToJSON(forcePrompt = false) {
     }
 }
 
-async function handleLoadFile() {
+async function handleLoadFile(callback) {
     if ('showOpenFilePicker' in window) {
         try {
             const [handle] = await window.showOpenFilePicker({
@@ -353,10 +353,9 @@ async function handleLoadFile() {
             const file = await handle.getFile();
             const content = await file.text();
             
-            importFromJSON(content);
+            importFromJSON(content, callback);
             currentFileHandle = handle;
             currentFileName = handle.name;
-            updateAppTitle();
         } catch (err) {
             console.error('Load canceled', err);
         }
@@ -366,7 +365,7 @@ async function handleLoadFile() {
     }
 }
 
-function importFromJSON(jsonString) {
+function importFromJSON(jsonString, callback) {
     canvas.loadFromJSON(jsonString, () => {
         canvas.getObjects().forEach(obj => {
             if (obj.data?.type === 'pillar' || obj.data?.type === 'road') {
@@ -377,5 +376,6 @@ function importFromJSON(jsonString) {
             }
         });
         canvas.renderAll();
+        if (callback) callback();
     });
 }

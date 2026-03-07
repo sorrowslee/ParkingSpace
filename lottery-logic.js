@@ -1,120 +1,130 @@
 /**
- * Lottery Logic - Handles the selection process and recommendation
+ * @typedef {import('fabric').fabric} fabric
  */
 
 let lotteryActive = false;
 
 function initLottery() {
-    const input = document.getElementById('slot-input');
-    const markBtn = document.getElementById('btn-mark-occupied');
-    const recommendBtn = document.getElementById('btn-recommend');
-
-    markBtn.addEventListener('click', () => {
-        markOccupied(input.value);
-        input.value = '';
-    });
-
-    input.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            markOccupied(input.value);
-            input.value = '';
+    // Bind Level Buttons
+    ['A', 'B', 'C', 'D'].forEach(level => {
+        const btn = document.getElementById(`btn-lottery-${level}`);
+        if (btn) {
+            btn.onclick = () => highlightLevelInViewport(level);
         }
     });
 
-    recommendBtn.addEventListener('click', showRecommendations);
+    // Bind Clear Button
+    const clearBtn = document.getElementById('btn-lottery-clear');
+    if (clearBtn) {
+        clearBtn.onclick = clearAllHighlights;
+    }
 }
 
-function startLottery() {
-    lotteryActive = true;
-    // Reset all slots
-    const slots = getAllSlots();
+function toggleSlotStatus(slot) {
+    if (!slot || slot.data?.type !== 'slot') return;
+    
+    // Toggle state
+    slot.data.isOccupied = !slot.data.isOccupied;
+    
+    // Reset visual (removes any temporary highlights too)
+    updateSlotVisual(slot);
+    persistToLocal();
+}
+
+function updateSlotVisual(slot) {
+    const rect = slot._objects.find(o => o.type === 'rect');
+    if (!rect) return;
+
+    if (slot.data.isOccupied) {
+        rect.set({
+            fill: 'rgba(239, 68, 68, 0.4)', // Occupied Red
+            stroke: '#ef4444',
+            strokeWidth: 2
+        });
+    } else {
+        rect.set({
+            fill: 'rgba(56, 189, 248, 0.1)', // Available Blue
+            stroke: '#38bdf8',
+            strokeWidth: 1
+        });
+    }
+    canvas.requestRenderAll();
+}
+
+/**
+ * Highlights slots of a certain level that are currently visible on screen
+ */
+function highlightLevelInViewport(level) {
+    // First clear existing highlights but preserve occupied status
+    clearAllHighlights();
+
+    // Mark button as active
+    const activeBtn = document.getElementById(`btn-lottery-${level}`);
+    if (activeBtn) activeBtn.classList.add('active');
+
+    const vpt = canvas.viewportTransform;
+    
+    // Get visible bounds
+    const zoom = canvas.getZoom();
+    const left = -vpt[4] / zoom;
+    const top = -vpt[5] / zoom;
+    const width = canvas.getWidth() / zoom;
+    const height = canvas.getHeight() / zoom;
+    
+    const visibleRect = {
+        left: left,
+        top: top,
+        right: left + width,
+        bottom: top + height
+    };
+
+    const slots = canvas.getObjects().filter(obj => obj.data?.type === 'slot');
+    
     slots.forEach(slot => {
-        slot.data.isOccupied = false;
-        updateSlotVisual(slot);
+        const isMatch = slot.data.rating === level && !slot.data.isOccupied;
+        const isInView = isObjectInRect(slot, visibleRect);
+
+        if (isMatch && isInView) {
+            const rect = slot._objects.find(o => o.type === 'rect');
+            rect.set({
+                stroke: '#fbbf24', // Highlight Gold
+                strokeWidth: 4,
+                shadow: new fabric.Shadow({
+                    color: 'rgba(251, 191, 36, 0.8)',
+                    blur: 15
+                })
+            });
+        }
     });
-    alert("抽選開始！所有車位已重置。");
+    
+    canvas.requestRenderAll();
+}
+
+function clearAllHighlights() {
+    const slots = canvas.getObjects().filter(obj => obj.data?.type === 'slot');
+    slots.forEach(slot => {
+        updateSlotVisual(slot);
+        const rect = slot._objects.find(o => o.type === 'rect');
+        rect.set('shadow', null);
+    });
+    
+    // Clear active button states
+    document.querySelectorAll('.tool-btn.rating-A, .tool-btn.rating-B, .tool-btn.rating-C, .tool-btn.rating-D')
+        .forEach(btn => btn.classList.remove('active'));
+
+    canvas.requestRenderAll();
+}
+
+function isObjectInRect(obj, rect) {
+    // Simple center-point check for viewport
+    return (
+        obj.left >= rect.left &&
+        obj.left <= rect.right &&
+        obj.top >= rect.top &&
+        obj.top <= rect.bottom
+    );
 }
 
 function getAllSlots() {
     return canvas.getObjects().filter(obj => obj.data?.type === 'slot');
-}
-
-function markOccupied(slotId) {
-    const slots = getAllSlots();
-    const target = slots.find(s => s.data.id === slotId);
-
-    if (target) {
-        target.data.isOccupied = true;
-        updateSlotVisual(target);
-        // Removed the "X" lines logic as per user request
-    } else {
-        alert("找不到此車位號碼：" + slotId);
-    }
-    canvas.renderAll();
-}
-
-function updateSlotVisual(slot) {
-    const rect = slot._objects[0];
-    if (slot.data.isOccupied) {
-        rect.set('fill', 'rgba(239, 68, 68, 0.4)'); // Darker red for occupied
-        rect.set('stroke', '#ef4444');
-    } else {
-        rect.set('fill', 'rgba(56, 189, 248, 0.1)');
-        rect.set('stroke', '#38bdf8');
-    }
-    canvas.renderAll();
-}
-
-function showRecommendations() {
-    const listContainer = document.getElementById('recommendation-list');
-    listContainer.innerHTML = '';
-
-    const available = getAllSlots()
-        .filter(s => !s.data.isOccupied) // Fixed: use .data.isOccupied
-        .sort((a, b) => a.data.rating.localeCompare(b.data.rating));
-
-    if (available.length === 0) {
-        listContainer.innerHTML = '<div class="no-results">無剩餘車位</div>';
-        return;
-    }
-
-    available.forEach(slot => {
-        const item = document.createElement('div');
-        item.className = `rec-item rating-${slot.data.rating}`;
-        item.innerHTML = `
-            <span><strong>${slot.data.id}</strong> (評價 ${slot.data.rating})</span>
-            <span class="status-badge">空置</span>
-        `;
-        item.onclick = () => highlightSlot(slot);
-        listContainer.appendChild(item);
-    });
-}
-
-function highlightSlot(slot) {
-    // Set Zoom
-    const targetZoom = 1.5;
-    canvas.setZoom(targetZoom);
-
-    // Calculate Pan to center the slot
-    // The viewport dimensions in canvas coordinates are (canvasWidth / zoom)
-    const vpw = canvas.getWidth() / targetZoom;
-    const vph = canvas.getHeight() / targetZoom;
-    
-    canvas.absolutePan({ 
-        x: slot.left - vpw / 2, 
-        y: slot.top - vph / 2 
-    });
-
-    // Flash animation
-    let count = 0;
-    const interval = setInterval(() => {
-        slot.set('opacity', count % 2 === 0 ? 0.3 : 1);
-        canvas.requestRenderAll();
-        count++;
-        if (count > 6) {
-            clearInterval(interval);
-            slot.set('opacity', 1);
-            canvas.requestRenderAll();
-        }
-    }, 200);
 }

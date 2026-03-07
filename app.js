@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initCanvas();
     initLottery();
     bindEvents();
-    checkForOnlyUse();
+    checkForParams();
     
     // Safety check before leaving
     window.onbeforeunload = (e) => {
@@ -59,11 +59,20 @@ function bindEvents() {
         };
     });
 
-    // Canvas Clicks for Creation
+    // Canvas Clicks for Creation/Interaction
     canvas.on('mouse:down', (opt) => {
         if (canvas.isDragging || canvas.isDrawingMode) return;
         
-        // If using Pillar, Road or Eraser, we don't want to select/drag existing objects
+        // Lottery Mode Interaction
+        if (currentMode === 'lottery') {
+            if (opt.target && opt.target.data?.type === 'slot') {
+                toggleSlotStatus(opt.target);
+            }
+            return;
+        }
+
+        // Editor Mode Tools
+        // If using Pillar, Road or Eraser, we don't want to select/drag existing objects...
         if (currentTool === 'pillar' || currentTool === 'road' || currentTool === 'eraser') {
             canvas.discardActiveObject();
             canvas.requestRenderAll();
@@ -96,7 +105,12 @@ function bindEvents() {
     document.getElementById('btn-save-as').onclick = () => exportToJSON(true);
     
     document.getElementById('btn-load').onclick = async () => {
-        const result = await handleLoadFile();
+        const onLoad = () => {
+            setMode(currentMode);
+            updateAppTitle();
+        };
+
+        const result = await handleLoadFile(onLoad);
         if (result === 'fallback') {
             const input = document.createElement('input');
             input.type = 'file';
@@ -104,9 +118,8 @@ function bindEvents() {
                 const file = e.target.files[0];
                 const reader = new FileReader();
                 reader.onload = f => {
-                    importFromJSON(f.target.result);
+                    importFromJSON(f.target.result, onLoad);
                     currentFileName = file.name;
-                    updateAppTitle();
                 };
                 reader.readAsText(file);
             };
@@ -153,9 +166,9 @@ function bindEvents() {
     };
 }
 
-async function checkForOnlyUse() {
+async function checkForParams() {
     const params = new URLSearchParams(window.location.search);
-    const targetMap = params.get('onlyUse');
+    const targetMap = params.get('use');
 
     if (targetMap) {
         document.body.classList.add('lottery-only');
@@ -165,9 +178,11 @@ async function checkForOnlyUse() {
             const response = await fetch(`maps/${targetMap}.json`);
             if (response.ok) {
                 const data = await response.text();
-                importFromJSON(data);
+                importFromJSON(data, () => {
+                    setMode('lottery');
+                    updateAppTitle();
+                });
                 currentFileName = targetMap;
-                updateAppTitle();
                 // Override onbeforeunload for view-only experience
                 window.onbeforeunload = null;
             } else {
@@ -182,6 +197,8 @@ async function checkForOnlyUse() {
 let clipboard = null;
 
 function handleKeyPress(e) {
+    if (currentMode === 'lottery') return; // Disable shortcuts in lottery mode
+    
     // Ctrl+S: Save
     if (e.ctrlKey && e.key === 's') {
         e.preventDefault();
@@ -235,7 +252,10 @@ function updateAppTitle() {
 // Initial Title
 updateAppTitle();
 
+let currentMode = 'editor';
+
 function setMode(mode) {
+    currentMode = mode;
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.control-group').forEach(c => c.classList.remove('active'));
     
@@ -243,11 +263,31 @@ function setMode(mode) {
     document.getElementById(`${mode}-controls`).classList.add('active');
     document.getElementById('mode-display').innerText = `Mode: ${mode.toUpperCase()}`;
 
+    // Canvas interactivity based on mode
     if (mode === 'lottery') {
         currentTool = null;
         stopRoadDrawing();
         document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+        
+        // Disable selection and editing
+        canvas.selection = false;
+        canvas.forEachObject(obj => {
+            obj.selectable = false;
+            obj.evented = true; // Still need events for clicking
+        });
+        canvas.discardActiveObject();
+    } else {
+        // Enable selection and editing
+        canvas.selection = true;
+        canvas.forEachObject(obj => {
+            // Restore selectability for slots only
+            if (obj.data?.type === 'slot') {
+                obj.selectable = true;
+            }
+        });
     }
+    
+    canvas.requestRenderAll();
 }
 
 function showSlotModal(slot) {
