@@ -62,38 +62,39 @@ function highlightLevelInViewport(level) {
     const activeBtn = document.getElementById(`btn-lottery-${level}`);
     if (activeBtn) activeBtn.classList.add('active');
 
-    const vpt = canvas.viewportTransform;
-    
-    // Get visible bounds
-    const zoom = canvas.getZoom();
-    const left = -vpt[4] / zoom;
-    const top = -vpt[5] / zoom;
-    const width = canvas.getWidth() / zoom;
-    const height = canvas.getHeight() / zoom;
+    // Robust viewport calculation
+    const vptInv = fabric.util.invertTransform(canvas.viewportTransform);
+    const topLeft = fabric.util.transformPoint({ x: 0, y: 0 }, vptInv);
+    const bottomRight = fabric.util.transformPoint({ x: canvas.getWidth(), y: canvas.getHeight() }, vptInv);
     
     const visibleRect = {
-        left: left,
-        top: top,
-        right: left + width,
-        bottom: top + height
+        left: topLeft.x,
+        top: topLeft.y,
+        right: bottomRight.x,
+        bottom: bottomRight.y
     };
 
     const slots = canvas.getObjects().filter(obj => obj.data?.type === 'slot');
+    const targetRating = level.trim().toUpperCase();
     
     slots.forEach(slot => {
-        const isMatch = slot.data.rating === level && !slot.data.isOccupied;
+        const slotRating = (slot.data.rating || '').toString().trim().toUpperCase();
+        const isMatch = slotRating === targetRating && !slot.data.isOccupied;
         const isInView = isObjectInRect(slot, visibleRect);
 
         if (isMatch && isInView) {
             const rect = slot._objects.find(o => o.type === 'rect');
-            rect.set({
-                stroke: '#fbbf24', // Highlight Gold
-                strokeWidth: 4,
-                shadow: new fabric.Shadow({
-                    color: 'rgba(251, 191, 36, 0.8)',
-                    blur: 15
-                })
-            });
+            if (rect) {
+                rect.set({
+                    stroke: '#fbbf24', // Highlight Gold
+                    strokeWidth: 4,
+                    shadow: new fabric.Shadow({
+                        color: 'rgba(251, 191, 36, 0.8)',
+                        blur: 15
+                    })
+                });
+                slot.set('dirty', true); // Force group re-render
+            }
         }
     });
     
@@ -105,7 +106,10 @@ function clearAllHighlights() {
     slots.forEach(slot => {
         updateSlotVisual(slot);
         const rect = slot._objects.find(o => o.type === 'rect');
-        rect.set('shadow', null);
+        if (rect) {
+            rect.set('shadow', null);
+            slot.set('dirty', true);
+        }
     });
     
     // Clear active button states
@@ -116,15 +120,38 @@ function clearAllHighlights() {
 }
 
 function isObjectInRect(obj, rect) {
-    // Simple center-point check for viewport
+    // Check if the center of the object is within the viewport rectangle
+    // Add a small 20px buffer to be more lenient
+    const buffer = 20;
     return (
-        obj.left >= rect.left &&
-        obj.left <= rect.right &&
-        obj.top >= rect.top &&
-        obj.top <= rect.bottom
+        obj.left >= rect.left - buffer &&
+        obj.left <= rect.right + buffer &&
+        obj.top >= rect.top - buffer &&
+        obj.top <= rect.bottom + buffer
     );
 }
 
 function getAllSlots() {
     return canvas.getObjects().filter(obj => obj.data?.type === 'slot');
+}
+
+function updateSlotVisual(slot) {
+    const rect = slot._objects.find(o => o.type === 'rect');
+    if (!rect) return;
+
+    if (slot.data.isOccupied) {
+        rect.set({
+            fill: 'rgba(239, 68, 68, 0.4)', // Occupied Red
+            stroke: '#ef4444',
+            strokeWidth: 2
+        });
+    } else {
+        rect.set({
+            fill: 'rgba(56, 189, 248, 0.1)', // Available Blue
+            stroke: '#38bdf8',
+            strokeWidth: 1
+        });
+    }
+    slot.set('dirty', true); // Ensure the group re-renders its cache
+    canvas.requestRenderAll();
 }
