@@ -33,7 +33,7 @@ function initCanvas() {
             this.lastPosY = evt.clientY;
             // Prevent selection on right click
             canvas.discardActiveObject();
-        } else if (currentTool === 'pillar' || currentTool === 'eraser') {
+        } else if (currentTool === 'pillar' || currentTool === 'eraser' || currentTool === 'road') {
             // Disable selection box when using these tools
             this.selection = false;
         }
@@ -50,9 +50,16 @@ function initCanvas() {
             this.lastPosY = e.clientY;
         }
 
+        const pointer = canvas.getPointer(opt.e);
+
         // Handle Continuous Pillar/Wall Brush
         if (currentTool === 'pillar' && opt.e.buttons === 1 && !this.isDragging) {
-            addPillar(opt.pointer.x, opt.pointer.y, false);
+            addPillar(pointer.x, pointer.y, false);
+        }
+
+        // Handle Continuous Road Brush
+        if (currentTool === 'road' && opt.e.buttons === 1 && !this.isDragging) {
+            addRoad(pointer.x, pointer.y);
         }
 
         // Handle Continuous Eraser Brush
@@ -236,36 +243,90 @@ function addElevator(x, y, type = 'public') {
     canvas.add(group);
 }
 
+function addRoad(x, y) {
+    // Snap to Top-Left of the Grid Cell
+    const snappedX = Math.floor(x / GRID_SIZE) * GRID_SIZE;
+    const snappedY = Math.floor(y / GRID_SIZE) * GRID_SIZE;
+
+    // Check for existing road/pillar at this grid spot
+    const objects = canvas.getObjects('rect').filter(o => o.data?.type === 'road' || o.data?.type === 'pillar');
+    for (let obj of objects) {
+        if (obj.left === snappedX && obj.top === snappedY) return;
+    }
+
+    const road = new fabric.Rect({
+        left: snappedX,
+        top: snappedY,
+        width: GRID_SIZE,
+        height: GRID_SIZE,
+        fill: 'rgba(234, 179, 8, 0.4)', // Yellow (tailored to neon theme)
+        stroke: '#eab308',
+        strokeWidth: 1,
+        originX: 'left',
+        originY: 'top',
+        selectable: false,
+        hoverCursor: 'default'
+    });
+
+    road.data = { type: 'road' };
+    canvas.add(road);
+}
+
 function startRoadDrawing() {
-    canvas.isDrawingMode = true;
-    canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
-    canvas.freeDrawingBrush.width = 40;
-    canvas.freeDrawingBrush.color = 'rgba(148, 163, 184, 0.3)';
+    // Legacy support for pencil drawing - removing as per request
+    canvas.isDrawingMode = false;
 }
 
 function stopRoadDrawing() {
     canvas.isDrawingMode = false;
 }
 
-// Export / Import
-async function exportToJSON() {
+function clearSession() {
+    localStorage.removeItem('parkingspace_backup');
+    localStorage.removeItem('parkingspace_filename');
+}
+
+// Export / Import State
+let currentFileHandle = null;
+let currentFileName = "全新內容";
+
+async function exportToJSON(forcePrompt = false) {
     const data = JSON.stringify(canvas.toJSON(['data']), null, 2);
     
-    // Check if browser supports showSaveFilePicker (Modern Browsers)
+    // Use existing handle if available and not forcing prompt
+    if (currentFileHandle && !forcePrompt) {
+        try {
+            const writable = await currentFileHandle.createWritable();
+            await writable.write(data);
+            await writable.close();
+            console.log('Directly saved to existing handle');
+            return true;
+        } catch (err) {
+            console.error('Direct save failed:', err);
+            // Fall through to file picker if direct save fails
+        }
+    }
+
+    // Standard Save As flow
     if ('showSaveFilePicker' in window) {
         try {
             const handle = await window.showSaveFilePicker({
-                suggestedName: 'parking-layout.json',
+                suggestedName: currentFileName === "全新內容" ? 'parking-layout.json' : currentFileName,
                 types: [{
                     description: 'JSON Files',
                     accept: { 'application/json': ['.json'] },
                 }],
             });
+            currentFileHandle = handle;
+            currentFileName = handle.name;
             const writable = await handle.createWritable();
             await writable.write(data);
             await writable.close();
+            updateAppTitle();
+            return true;
         } catch (err) {
             console.error('Save canceled or failed', err);
+            return false;
         }
     } else {
         // Fallback for older browsers
@@ -273,11 +334,48 @@ async function exportToJSON() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'parking-layout.json';
+        a.download = currentFileName === "全新內容" ? 'parking-layout.json' : currentFileName;
         a.click();
+        return true;
+    }
+}
+
+async function handleLoadFile() {
+    if ('showOpenFilePicker' in window) {
+        try {
+            const [handle] = await window.showOpenFilePicker({
+                types: [{
+                    description: 'JSON Files',
+                    accept: { 'application/json': ['.json'] },
+                }],
+                multiple: false
+            });
+            const file = await handle.getFile();
+            const content = await file.text();
+            
+            importFromJSON(content);
+            currentFileHandle = handle;
+            currentFileName = handle.name;
+            updateAppTitle();
+        } catch (err) {
+            console.error('Load canceled', err);
+        }
+    } else {
+        // Fallback input trigger (handled in app.js for now)
+        return 'fallback';
     }
 }
 
 function importFromJSON(jsonString) {
-    canvas.loadFromJSON(jsonString, canvas.renderAll.bind(canvas));
+    canvas.loadFromJSON(jsonString, () => {
+        canvas.getObjects().forEach(obj => {
+            if (obj.data?.type === 'pillar' || obj.data?.type === 'road') {
+                obj.set({
+                    selectable: false,
+                    hoverCursor: 'default'
+                });
+            }
+        });
+        canvas.renderAll();
+    });
 }

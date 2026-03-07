@@ -19,7 +19,17 @@ echo.
 echo 正在開啟網頁: http://localhost:5500
 echo.
 
-npx live-server --port=5500 --no-browser & start http://localhost:5500
+echo [ParkingSpace] 正在啟動穩定版服務...
+echo.
+echo 注意：
+echo 1. 此版本已取消「自動重新整理」，存檔時不會再干擾您。
+echo 2. 啟動後會自動開啟瀏覽器。
+echo 3. 請保持此視窗開啟。
+echo.
 
-:: 保持視窗開啟以維持 server 運行
+:: 啟動 http-server (穩定、不跳重新整理)
+call npx http-server -p 5500 -o --cors
+
+pause
+
 pause

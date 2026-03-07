@@ -8,7 +8,32 @@ document.addEventListener('DOMContentLoaded', () => {
     initCanvas();
     initLottery();
     bindEvents();
+    
+    // Safety check before leaving
+    window.onbeforeunload = (e) => {
+        // Only show if there's unsaved work relative to last save
+        // For now, simplicity: always warn if canvas has objects
+        if (canvas.getObjects().length > 0) {
+            return "您可能有未儲存的變更，確定要離開嗎？";
+        }
+    };
+
+    // Auto-Recovery on Load
+    setTimeout(tryRecoverSession, 500);
 });
+
+function tryRecoverSession() {
+    const savedData = localStorage.getItem('parkingspace_backup');
+    const savedName = localStorage.getItem('parkingspace_filename');
+    
+    if (savedData && confirm("偵測到上次未完成的編輯紀錄，是否要恢復？")) {
+        importFromJSON(savedData);
+        if (savedName) {
+            currentFileName = savedName;
+            updateAppTitle();
+        }
+    }
+}
 
 function bindEvents() {
     // Mode Switching
@@ -37,14 +62,14 @@ function bindEvents() {
     canvas.on('mouse:down', (opt) => {
         if (canvas.isDragging || canvas.isDrawingMode) return;
         
-        // If using Pillar or Eraser, we don't want to select/drag existing objects
-        if (currentTool === 'pillar' || currentTool === 'eraser') {
+        // If using Pillar, Road or Eraser, we don't want to select/drag existing objects
+        if (currentTool === 'pillar' || currentTool === 'road' || currentTool === 'eraser') {
             canvas.discardActiveObject();
             canvas.requestRenderAll();
         }
 
-        // If clicking an object (and not using pillar/eraser), we want to interact with it
-        if (opt.target && currentTool !== 'pillar' && currentTool !== 'eraser') return;
+        // If clicking an object (and not using tools), we want to interact with it
+        if (opt.target && currentTool !== 'pillar' && currentTool !== 'road' && currentTool !== 'eraser') return;
 
         const pointer = canvas.getPointer(opt.e);
         const { x, y } = pointer;
@@ -54,6 +79,8 @@ function bindEvents() {
             // Optionally auto-open modal or let user dblclick
         } else if (currentTool === 'pillar') {
             addPillar(x, y, true);
+        } else if (currentTool === 'road') {
+            addRoad(x, y);
         } else if (currentTool === 'elevator') {
             addElevator(x, y, 'public');
         } else if (currentTool === 'elevator-home') {
@@ -64,20 +91,36 @@ function bindEvents() {
     // Removed the previous mouse:up handler that was causing conflicts
 
     // Utility Actions
-    document.getElementById('btn-save').onclick = exportToJSON;
-    document.getElementById('btn-load').onclick = () => {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.onchange = e => {
-            const file = e.target.files[0];
-            const reader = new FileReader();
-            reader.onload = f => importFromJSON(f.target.result);
-            reader.readAsText(file);
-        };
-        input.click();
+    document.getElementById('btn-save').onclick = () => exportToJSON(false);
+    document.getElementById('btn-save-as').onclick = () => exportToJSON(true);
+    
+    document.getElementById('btn-load').onclick = async () => {
+        const result = await handleLoadFile();
+        if (result === 'fallback') {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.onchange = e => {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                reader.onload = f => {
+                    importFromJSON(f.target.result);
+                    currentFileName = file.name;
+                    updateAppTitle();
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
     };
+
     document.getElementById('btn-clear').onclick = () => {
-        if (confirm("確定要清空畫布嗎？")) canvas.clear();
+        if (confirm("確定要清空畫布嗎？")) {
+            canvas.clear();
+            currentFileHandle = null;
+            currentFileName = "全新內容";
+            updateAppTitle();
+            clearSession();
+        }
     };
 
     // Zoom
@@ -107,6 +150,13 @@ function bindEvents() {
 let clipboard = null;
 
 function handleKeyPress(e) {
+    // Ctrl+S: Save
+    if (e.ctrlKey && e.key === 's') {
+        e.preventDefault();
+        exportToJSON(false);
+        return;
+    }
+
     if (e.ctrlKey && e.key === 'c') {
         const active = canvas.getActiveObject();
         if (active && active.data?.type === 'slot') {
@@ -143,6 +193,14 @@ function duplicateSlot(source) {
     
     canvas.renderAll();
 }
+
+function updateAppTitle() {
+    const cleanName = currentFileName.replace(/\.[^/.]+$/, "");
+    document.title = `${cleanName} - ParkingSpace`;
+}
+
+// Initial Title
+updateAppTitle();
 
 function setMode(mode) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -194,6 +252,13 @@ function saveSlotProperties() {
         textObj.set('text', `${newRating} ${newId}`);
         
         canvas.renderAll();
+        persistToLocal();
     }
     closeModal();
+}
+
+function persistToLocal() {
+    const data = JSON.stringify(canvas.toJSON(['data']));
+    localStorage.setItem('parkingspace_backup', data);
+    localStorage.setItem('parkingspace_filename', currentFileName);
 }
