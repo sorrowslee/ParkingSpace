@@ -10,6 +10,7 @@ Thumbs.db
 *.json
 !package.json
 !package-lock.json
+!maps/*.json
 
 # If you want to keep your parking layouts on GitHub, comment out the line below
 parking-layout.json
