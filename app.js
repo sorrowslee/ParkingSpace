@@ -165,6 +165,29 @@ function bindEvents() {
     // Keyboard Shortcuts (Ctrl+C, Ctrl+V)
     window.addEventListener('keydown', handleKeyPress);
 
+function highlightSlot(slot) {
+    if (!slot) return;
+    
+    // Select the slot
+    canvas.setActiveObject(slot);
+    
+    // Center viewport on the slot
+    canvas.viewportCenterObject(slot);
+    
+    // Flash animation
+    let count = 0;
+    const interval = setInterval(() => {
+        slot.set('opacity', count % 2 === 0 ? 0.3 : 1);
+        canvas.requestRenderAll();
+        count++;
+        if (count > 6) {
+            clearInterval(interval);
+            slot.set('opacity', 1);
+            canvas.requestRenderAll();
+        }
+    }, 200);
+}
+
     // Modal
     document.getElementById('btn-modal-cancel').onclick = closeModal;
     document.getElementById('btn-modal-save').onclick = saveSlotProperties;
