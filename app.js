@@ -165,29 +165,6 @@ function bindEvents() {
     // Keyboard Shortcuts (Ctrl+C, Ctrl+V)
     window.addEventListener('keydown', handleKeyPress);
 
-function highlightSlot(slot) {
-    if (!slot) return;
-    
-    // Select the slot
-    canvas.setActiveObject(slot);
-    
-    // Center viewport on the slot
-    canvas.viewportCenterObject(slot);
-    
-    // Flash animation
-    let count = 0;
-    const interval = setInterval(() => {
-        slot.set('opacity', count % 2 === 0 ? 0.3 : 1);
-        canvas.requestRenderAll();
-        count++;
-        if (count > 6) {
-            clearInterval(interval);
-            slot.set('opacity', 1);
-            canvas.requestRenderAll();
-        }
-    }, 200);
-}
-
     // Modal
     document.getElementById('btn-modal-cancel').onclick = closeModal;
     document.getElementById('btn-modal-save').onclick = saveSlotProperties;
@@ -366,4 +343,34 @@ function persistToLocal() {
     const data = JSON.stringify(canvas.toJSON(['data']));
     localStorage.setItem('parkingspace_backup', data);
     localStorage.setItem('parkingspace_filename', currentFileName);
+}
+
+function highlightSlot(slot) {
+    if (!slot) return;
+    
+    // Select the slot
+    canvas.setActiveObject(slot);
+    
+    // Correctly pan the viewport to center the object without moving its coordinates
+    const center = slot.getCenterPoint();
+    const zoom = canvas.getZoom();
+    
+    // Directly set viewport transform to center the slot
+    const vpt = canvas.viewportTransform.slice();
+    vpt[4] = canvas.width / 2 - center.x * zoom;
+    vpt[5] = canvas.height / 2 - center.y * zoom;
+    canvas.setViewportTransform(vpt);
+    
+    // Flash animation to grab attention
+    let count = 0;
+    const interval = setInterval(() => {
+        slot.set('opacity', count % 2 === 0 ? 0.3 : 1);
+        canvas.requestRenderAll();
+        count++;
+        if (count > 6) {
+            clearInterval(interval);
+            slot.set('opacity', 1);
+            canvas.requestRenderAll();
+        }
+    }, 200);
 }
