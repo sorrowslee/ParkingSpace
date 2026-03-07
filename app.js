@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initCanvas();
     initLottery();
     bindEvents();
+    checkForOnlyUse();
     
     // Safety check before leaving
     window.onbeforeunload = (e) => {
@@ -145,6 +146,37 @@ function bindEvents() {
     // Modal
     document.getElementById('btn-modal-cancel').onclick = closeModal;
     document.getElementById('btn-modal-save').onclick = saveSlotProperties;
+
+    // Mobile Menu Toggle
+    document.getElementById('menu-toggle').onclick = () => {
+        document.querySelector('.sidebar').classList.toggle('open');
+    };
+}
+
+async function checkForOnlyUse() {
+    const params = new URLSearchParams(window.location.search);
+    const targetMap = params.get('onlyUse');
+
+    if (targetMap) {
+        document.body.classList.add('lottery-only');
+        setMode('lottery');
+        
+        try {
+            const response = await fetch(`maps/${targetMap}.json`);
+            if (response.ok) {
+                const data = await response.text();
+                importFromJSON(data);
+                currentFileName = targetMap;
+                updateAppTitle();
+                // Override onbeforeunload for view-only experience
+                window.onbeforeunload = null;
+            } else {
+                console.error('Map file not found');
+            }
+        } catch (err) {
+            console.error('Failed to auto-load map:', err);
+        }
+    }
 }
 
 let clipboard = null;
@@ -197,6 +229,7 @@ function duplicateSlot(source) {
 function updateAppTitle() {
     const cleanName = currentFileName.replace(/\.[^/.]+$/, "");
     document.title = `${cleanName} - ParkingSpace`;
+    document.getElementById('mobile-filename').innerText = cleanName;
 }
 
 // Initial Title

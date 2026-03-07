@@ -47,3 +47,20 @@
 
 ## 📄 授權
 本專案採用 MIT 授權。
+
+---
+
+## 🌐 遠端與行動存取
+
+### 1. 同區域網路 (Wi-Fi)
+當您執行 `StartParkingTool.bat` 時，視窗會自動顯示您的 **手機存取網址**。只要手機與電腦連在同一個 Wi-Fi，輸入該網址即可存取。
+
+### 2. 公網遠端存取 (Ngrok)
+如果您需要在外面透過 4G/5G 網路存取：
+1. 註冊 [Ngrok](https://ngrok.com/) 帳號。
+2. 在 [Dashboard](https://dashboard.ngrok.com/get-started/your-authtoken) 取得您的 **Auth Token**。
+3. 用記事本開啟 **`StartPublicAccess.bat`**，將 Token 貼入 `NGROK_TOKEN` 欄位。
+4. 執行該批次檔，即可獲得一個全球通用的 **https** 網址。
+
+### 3. 專屬抽選模式 (只看 B2)
+在網址後方加上 `?onlyUse=B2`，系統會自動載入 B2 地圖並鎖定為唯讀的抽選模式。

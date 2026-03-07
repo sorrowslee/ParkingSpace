@@ -12,19 +12,26 @@ if %ERRORLEVEL% neq 0 (
     exit /b 1
 )
 
-:: 在背景啟動 live-server 並自動開啟瀏覽器
-echo 服務啟動後請勿關閉此視窗。
-echo 您可以縮小此視窗以保持服務運行。
-echo.
-echo 正在開啟網頁: http://localhost:5500
-echo.
+:: 嘗試獲取本機 IP 位址
+for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4 Address" /c:"IPv4 位址"') do (
+    set LOCAL_IP=%%a
+)
+set LOCAL_IP=%LOCAL_IP: =%
 
 echo [ParkingSpace] 正在啟動穩定版服務...
 echo.
-echo 注意：
+echo ==============================================
+echo  電腦存取: http://localhost:5500
+echo  手機存取: http://%LOCAL_IP%:5500
+echo.
+echo  抽選模式示例 (自動讀取 B2):
+echo  http://%LOCAL_IP%:5500?onlyUse=B2
+echo ==============================================
+echo.
+echo 注意事項：
 echo 1. 此版本已取消「自動重新整理」，存檔時不會再干擾您。
-echo 2. 啟動後會自動開啟瀏覽器。
-echo 3. 請保持此視窗開啟。
+echo 2. 啟動後會「自動開啟」您的預設瀏覽器。
+echo 3. 請保持此視窗開啟以維持地帆工具運作。
 echo.
 
 :: 啟動 http-server (穩定、不跳重新整理)

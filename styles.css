@@ -292,3 +292,92 @@ canvas {
     border: 1px solid var(--border-color);
     color: white;
 }
+/* Mobile Header (Hidden by default) */
+.mobile-header {
+    display: none;
+    height: 60px;
+    background: var(--sidebar-bg);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border-color);
+    padding: 0 16px;
+    align-items: center;
+    justify-content: space-between;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 200;
+}
+
+.icon-btn {
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+}
+
+.mobile-logo {
+    font-weight: 700;
+    font-size: 18px;
+}
+
+.mobile-logo span {
+    color: var(--accent-blue);
+}
+
+/* Responsive Media Queries */
+@media (max-width: 768px) {
+    #app {
+        flex-direction: column;
+    }
+
+    .mobile-header {
+        display: flex;
+    }
+
+    .sidebar {
+        position: fixed;
+        top: 60px;
+        left: -320px; /* Hidden by default on mobile */
+        bottom: 0;
+        transition: left 0.3s ease;
+        width: 300px;
+        box-shadow: 10px 0 30px rgba(0,0,0,0.5);
+    }
+
+    .sidebar.open {
+        left: 0;
+    }
+
+    .canvas-container {
+        margin-top: 60px; /* Offset for header */
+        height: calc(100vh - 60px);
+        width: 100vw;
+    }
+
+    .zoom-controls {
+        bottom: 40px;
+        right: 16px;
+    }
+
+    .modal-content {
+        width: 90%;
+        padding: 24px;
+    }
+}
+
+/* Hidden elements for Only-Lottery mode */
+body.lottery-only .logo,
+body.lottery-only .mode-tabs,
+body.lottery-only #editor-controls,
+body.lottery-only #btn-clear,
+body.lottery-only #btn-load,
+body.lottery-only #btn-save,
+body.lottery-only #btn-save-as {
+    display: none !important;
+}
+
+body.lottery-only .sidebar {
+    padding-top: 20px;
+}
