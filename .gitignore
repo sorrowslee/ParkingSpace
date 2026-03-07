@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+.npm/
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Project Specific
+*.json
+!package.json
+!package-lock.json
+
+# If you want to keep your parking layouts on GitHub, comment out the line below
+parking-layout.json
+
+# IDEs
+.vscode/
+.idea/

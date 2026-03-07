@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ParkingSpace - 停車場視覺化與推薦系統</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+</head>
+<body class="dark-theme">
+    <div id="app">
+        <!-- Sidebar / Tools -->
+        <aside class="sidebar">
+            <div class="logo">
+                <h1>Parking<span>Space</span></h1>
+            </div>
+            
+            <nav class="mode-tabs">
+                <button id="btn-editor-mode" class="tab-btn active" onclick="setMode('editor')">繪圖模式</button>
+                <button id="btn-lottery-mode" class="tab-btn" onclick="setMode('lottery')">抽選模式</button>
+            </nav>
+
+            <!-- Editor Tools -->
+            <div id="editor-controls" class="control-group active">
+                <h3>地圖物件</h3>
+                <div class="tool-grid">
+                    <button class="tool-btn" data-tool="slot" title="新增停車位">🅿️ 停車位</button>
+                    <button class="tool-btn" data-tool="pillar" title="單個柱子 / 拖曳成牆">⬜ 柱子/牆</button>
+                    <button class="tool-btn" data-tool="road" title="自由繪製道路">🛣️ 道路</button>
+                    <button class="tool-btn" data-tool="elevator" title="公共電梯">🛗 電梯</button>
+                    <button class="tool-btn" data-tool="elevator-home" title="住家電梯">🏠 家電梯</button>
+                    <button class="tool-btn danger" data-tool="eraser" title="橡皮擦">🧹 橡皮擦</button>
+                </div>
+
+                <h3>管理</h3>
+                <div class="action-grid">
+                    <button id="btn-save" class="action-btn primary">儲存 JSON</button>
+                    <button id="btn-load" class="action-btn">載入 JSON</button>
+                    <button id="btn-clear" class="action-btn danger">清空畫布</button>
+                </div>
+            </div>
+
+            <!-- Lottery Controls -->
+            <div id="lottery-controls" class="control-group">
+                <h3>即時狀態更新</h3>
+                <div class="lottery-input">
+                    <input type="text" id="slot-input" placeholder="輸入車位號碼 (如 237)" maxlength="3">
+                    <button id="btn-mark-occupied" class="action-btn primary">標記 X</button>
+                </div>
+                
+                <button id="btn-recommend" class="recommend-btn">
+                    <span class="sparkle">✨</span> 推薦最佳空位
+                </button>
+
+                <div id="recommendation-list" class="recommend-list">
+                    <!-- Recommended items will appear here -->
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Canvas Area -->
+        <main class="canvas-container" id="canvas-container">
+            <canvas id="parking-canvas"></canvas>
+            
+            <!-- Floating Zoom Controls -->
+            <div class="zoom-controls">
+                <button id="zoom-in">+</button>
+                <button id="zoom-out">-</button>
+                <button id="zoom-reset">100%</button>
+            </div>
+
+            <!-- Status Indicator -->
+            <div class="status-bar">
+                <span id="coord-display">X: 0, Y: 0</span>
+                <span id="mode-display">Mode: Editor</span>
+            </div>
+        </main>
+
+        <!-- Modal for Slot Detail -->
+        <div id="slot-modal" class="modal">
+            <div class="modal-content">
+                <h2>車位屬性設定</h2>
+                <div class="form-item">
+                    <label>車位號碼</label>
+                    <input type="text" id="modal-slot-id" placeholder="000" maxlength="3">
+                </div>
+                <div class="form-item">
+                    <label>車位評價</label>
+                    <select id="modal-slot-rating">
+                        <option value="A">A - 極佳 (近電梯、大空間)</option>
+                        <option value="B">B - 優良 (好停)</option>
+                        <option value="C">C - 普通</option>
+                        <option value="D">D - 較差 (偏遠、有障礙)</option>
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button id="btn-modal-cancel" class="action-btn">取消</button>
+                    <button id="btn-modal-save" class="action-btn primary">確定</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="parking-engine.js"></script>
+    <script src="lottery-logic.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
