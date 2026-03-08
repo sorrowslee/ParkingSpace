@@ -8,8 +8,39 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js" crossorigin="anonymous"></script>
 
-    <!-- PWA Support -->
+    <!-- PWA Support & Early SW Registration -->
     <link rel="manifest" href="manifest.json">
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js').then(reg => {
+                console.log('[PWA] Service Worker Registered');
+                reg.onupdatefound = () => {
+                    const installingWorker = reg.installing;
+                    installingWorker.onstatechange = () => {
+                        if (installingWorker.state === 'installed') {
+                            if (navigator.serviceWorker.controller) {
+                                console.log('[PWA] New content is available; please refresh.');
+                            } else {
+                                console.log('[PWA] Content is cached for offline use.');
+                                if(document.getElementById('sw-status')) {
+                                    document.getElementById('sw-status').innerText = '已準備好離線使用';
+                                    document.getElementById('sw-status').style.background = '#22c55e';
+                                }
+                            }
+                        }
+                    };
+                };
+            }).catch(err => console.error('[PWA] SW Failed', err));
+            
+            // Initial check
+            navigator.serviceWorker.ready.then(() => {
+                if(document.getElementById('sw-status')) {
+                    document.getElementById('sw-status').innerText = '已準備好離線使用';
+                    document.getElementById('sw-status').style.background = '#22c55e';
+                }
+            });
+        }
+    </script>
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -22,6 +53,7 @@
         <aside class="sidebar">
             <div class="logo">
                 <h1 style="font-size: 18px;">B2 <span>抽選</span></h1>
+                <div id="sw-status" style="font-size: 10px; padding: 4px 8px; border-radius: 4px; background: #64748b; color: white; display: inline-block; margin-top: -10px; margin-bottom: 20px;">正在檢查離線狀態...</div>
             </div>
 
             <!-- Lottery Controls (always active) -->
@@ -105,8 +137,8 @@
         // Global State & Definitions
         // ========================================
         const LOTTERY_MAP = 'B2';
-        window.currentMode = 'lottery'; // Set ASAP for engine
-        currentFileName = LOTTERY_MAP; // Assigned without re-declaration (already in engine)
+        window.currentMode = 'lottery'; 
+        currentFileName = LOTTERY_MAP;
 
         function showError(msg) {
             const errDiv = document.getElementById('lottery-error');
@@ -117,7 +149,6 @@
             console.error(msg);
         }
 
-        // Stub/Ported functions
         function setMode() {} 
         function updateAppTitle() {}
 
@@ -159,7 +190,6 @@
                 initCanvas();
                 initLottery();
 
-                // Refined Zoom Controls
                 document.getElementById('zoom-in').onclick = () => canvas.setZoom(canvas.getZoom() * 1.1);
                 document.getElementById('zoom-out').onclick = () => canvas.setZoom(canvas.getZoom() / 1.1);
                 document.getElementById('zoom-reset').onclick = () => canvas.setZoom(1);
@@ -172,8 +202,8 @@
 
                 canvas.selection = false;
 
-                // Load map with cache busting
-                const mapUrl = `maps/${LOTTERY_MAP}.json?t=${Date.now()}`;
+                // Load map (Removed ?t= cache-buster to ensure match with SW cache)
+                const mapUrl = `maps/${LOTTERY_MAP}.json`;
                 console.log('[PWA] Fetching map:', mapUrl);
                 
                 const response = await fetch(mapUrl);

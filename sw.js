@@ -1,4 +1,4 @@
-const CACHE_NAME = 'parking-lot-v10';
+const CACHE_NAME = 'parking-lot-v12';
 const ASSETS = [
     './',
     './lottery.html',
@@ -15,33 +15,48 @@ const ASSETS = [
     'https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Outfit:wght@400;600;700&display=swap'
 ];
 
-// Install Event - Caching
+// Install Event - Caching All Assets
 self.addEventListener('install', event => {
     self.skipWaiting();
     event.waitUntil(
         caches.open(CACHE_NAME).then(cache => {
-            console.log('[SW] Caching assets...');
+            console.log('[SW] Installing V11 - Caching all assets');
             return cache.addAll(ASSETS);
         })
     );
 });
 
-// Activate Event - Cleaning Up Old Caches
+// Activate Event - Clean up old caches and take control
 self.addEventListener('activate', event => {
     event.waitUntil(
         caches.keys().then(keys => {
             return Promise.all(
                 keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))
             );
-        }).then(() => self.clients.claim())
+        }).then(() => {
+            console.log('[SW] V11 Activated - Taking control');
+            return self.clients.claim();
+        })
     );
 });
 
-// Fetch Event - Offline First Strategy
+// Fetch Event - Cache-First for Assets, Network-First for unknown
 self.addEventListener('fetch', event => {
+    // Skip non-GET requests
+    if (event.request.method !== 'GET') return;
+
     event.respondWith(
-        caches.match(event.request, { ignoreSearch: true }).then(response => {
-            return response || fetch(event.request);
+        caches.match(event.request, { ignoreSearch: true }).then(cachedResponse => {
+            if (cachedResponse) {
+                return cachedResponse;
+            }
+            // If not in cache, try network
+            return fetch(event.request).catch(() => {
+                // If both fail and it's a page request, return lottery.html
+                if (event.request.mode === 'navigate') {
+                    return caches.match('./lottery.html');
+                }
+            });
         })
     );
 });
