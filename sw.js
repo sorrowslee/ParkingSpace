@@ -1,4 +1,4 @@
-const CACHE_NAME = 'parking-lot-v12';
+const CACHE_NAME = 'parking-lot-v13';
 const ASSETS = [
     './',
     './lottery.html',

@@ -195,8 +195,10 @@
                 document.getElementById('zoom-reset').onclick = () => canvas.setZoom(1);
 
                 canvas.on('mouse:up', (opt) => {
-                    if (opt.target && opt.target.data?.type === 'slot') {
-                        toggleSlotStatus(opt.target);
+                    if (!canvas.wasDragging) {
+                        if (opt.target && opt.target.data?.type === 'slot') {
+                            toggleSlotStatus(opt.target);
+                        }
                     }
                 });
 
@@ -221,6 +223,13 @@
                     canvas.discardActiveObject();
                     canvas.requestRenderAll();
                     document.title = `${LOTTERY_MAP} - 停車場抽選`;
+
+                    // Auto-center on Home Elevator after load
+                    setTimeout(() => {
+                        if (typeof centerOnHomeElevator === 'function') {
+                            centerOnHomeElevator();
+                        }
+                    }, 500);
                 });
 
             } catch (err) {
