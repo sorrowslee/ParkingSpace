@@ -184,7 +184,7 @@ async function checkForParams() {
     const targetMap = params.get('use');
 
     if (targetMap) {
-        document.body.classList.add('lottery-mode');
+        document.body.classList.add('lottery-only');
         setMode('lottery');
         
         try {
@@ -196,10 +196,9 @@ async function checkForParams() {
                     updateAppTitle();
                 });
                 currentFileName = targetMap;
-                // Override onbeforeunload for view-only experience
                 window.onbeforeunload = null;
             } else {
-                console.error('Map file not found');
+                console.error('Map file not found:', targetMap);
             }
         } catch (err) {
             console.error('Failed to auto-load map:', err);

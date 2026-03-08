@@ -6,7 +6,15 @@
     <title>ParkingSpace - 停車場視覺化與推薦系統</title>
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js" crossorigin="anonymous"></script>
+
+    <!-- PWA Support -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="停車場抽選">
+    <link rel="apple-touch-icon" href="icon.png">
 </head>
 <body class="dark-theme">
     <div id="app">
@@ -130,5 +138,16 @@
     <script src="parking-engine.js"></script>
     <script src="lottery-logic.js"></script>
     <script src="app.js"></script>
+
+    <script>
+        // Register Service Worker for PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('[PWA] Service Worker Registered', reg))
+                    .catch(err => console.error('[PWA] Service Worker Failed', err));
+            });
+        }
+    </script>
 </body>
 </html>

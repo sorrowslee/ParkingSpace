@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>B2 停車場抽選</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js" crossorigin="anonymous"></script>
+
+    <!-- PWA Support -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="停車場抽選">
+    <link rel="apple-touch-icon" href="icon.png">
+</head>
+<body class="dark-theme lottery-mode">
+    <div id="app">
+        <!-- Sidebar / Lottery Controls Only -->
+        <aside class="sidebar">
+            <div class="logo">
+                <h1 style="font-size: 18px;">B2 <span>抽選</span></h1>
+            </div>
+
+            <!-- Lottery Controls (always active) -->
+            <div id="lottery-controls" class="control-group active">
+                <div class="tool-grid">
+                    <button id="btn-lottery-A" class="tool-btn rating-A">A級 車位</button>
+                    <button id="btn-lottery-B" class="tool-btn rating-B">B級 車位</button>
+                    <button id="btn-lottery-C" class="tool-btn rating-C">C級 車位</button>
+                    <button id="btn-lottery-D" class="tool-btn rating-D">D級 車位</button>
+                </div>
+                
+                <div class="action-grid" style="margin-top: 20px;">
+                    <button id="btn-lottery-clear" class="action-btn danger">清空地圖高亮</button>
+                </div>
+
+                <div class="lottery-search-group" style="margin-top: 20px; display: flex; flex-direction: column; gap: 20px;">
+                    <div class="search-item" style="display: flex; flex-direction: column; gap: 8px;">
+                        <label style="font-size: 16px; font-weight: bold; color: #ef4444; text-shadow: 0 0 10px rgba(239, 68, 68, 0.3);">車位抽選 (輸入號碼)</label>
+                        <input type="text" id="input-lottery-select" placeholder="如 002" style="width: 100%; padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); color: white; font-size: 18px; text-align: center;">
+                        <button id="btn-lottery-id-select" class="action-btn primary" style="width: 100%; padding: 12px; font-size: 16px;">確認抽選</button>
+                    </div>
+                </div>
+
+                <div class="action-grid" style="margin-top: 30px;">
+                    <button id="btn-lottery-home" class="action-btn primary" style="background: #22c55e; box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4);">回到家電梯</button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Canvas Area -->
+        <main class="canvas-container" id="canvas-container">
+            <canvas id="parking-canvas"></canvas>
+            
+            <!-- Floating Zoom Controls -->
+            <div class="zoom-controls">
+                <button id="zoom-in">+</button>
+                <button id="zoom-out">-</button>
+                <button id="zoom-reset">100%</button>
+            </div>
+
+            <!-- Status Indicator -->
+            <div class="status-bar">
+                <span id="coord-display">X: 0, Y: 0</span>
+                <span id="mode-display">Mode: Lottery</span>
+            </div>
+        </main>
+
+        <!-- Modal (hidden, needed by engine but won't be used) -->
+        <div id="slot-modal" class="modal">
+            <div class="modal-content">
+                <h2>車位屬性設定</h2>
+                <div class="form-item">
+                    <label>車位號碼</label>
+                    <input type="text" id="modal-slot-id" placeholder="000" maxlength="3">
+                </div>
+                <div class="form-item">
+                    <label>車位評價</label>
+                    <select id="modal-slot-rating">
+                        <option value="A">A</option>
+                        <option value="B">B</option>
+                        <option value="C">C</option>
+                        <option value="D">D</option>
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button id="btn-modal-cancel" class="action-btn">取消</button>
+                    <button id="btn-modal-save" class="action-btn primary">確定</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error/Debug Display -->
+    <div id="lottery-error" style="display:none; position:fixed; bottom:20px; left:20px; right:20px; background:rgba(239,68,68,0.9); color:white; padding:15px; border-radius:10px; z-index:10000; font-family: monospace;"></div>
+
+    <script src="parking-engine.js"></script>
+    <script src="lottery-logic.js"></script>
+
+    <script>
+        // ========================================
+        // Global State & Definitions
+        // ========================================
+        const LOTTERY_MAP = 'B2';
+        window.currentMode = 'lottery'; // Set ASAP for engine
+        currentFileName = LOTTERY_MAP; // Assigned without re-declaration (already in engine)
+
+        function showError(msg) {
+            const errDiv = document.getElementById('lottery-error');
+            if (errDiv) {
+                errDiv.style.display = 'block';
+                errDiv.innerText = '[Error] ' + msg;
+            }
+            console.error(msg);
+        }
+
+        // Stub/Ported functions
+        function setMode() {} 
+        function updateAppTitle() {}
+
+        function persistToLocal() {
+            try {
+                const data = JSON.stringify(canvas.toJSON(['data']));
+                localStorage.setItem('parkingspace_backup', data);
+                localStorage.setItem('parkingspace_filename', currentFileName);
+            } catch (e) { console.warn('Persist failed', e); }
+        }
+
+        function highlightSlot(slot) {
+            if (!slot) return;
+            canvas.discardActiveObject();
+            const center = slot.getCenterPoint();
+            const zoom = canvas.getZoom();
+            const vpt = canvas.viewportTransform.slice();
+            vpt[4] = canvas.width / 2 - center.x * zoom;
+            vpt[5] = canvas.height / 2 - center.y * zoom;
+            canvas.setViewportTransform(vpt);
+            let count = 0;
+            const interval = setInterval(() => {
+                slot.set('opacity', count % 2 === 0 ? 0.3 : 1);
+                canvas.requestRenderAll();
+                count++;
+                if (count > 6) { clearInterval(interval); slot.set('opacity', 1); canvas.requestRenderAll(); }
+            }, 200);
+        }
+
+        // ========================================
+        // Initialization
+        // ========================================
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('[PWA] B2 Lottery Page Initializing...');
+            
+            try {
+                if (typeof initCanvas !== 'function') throw new Error('parking-engine.js not loaded!');
+                
+                initCanvas();
+                initLottery();
+
+                // Refined Zoom Controls
+                document.getElementById('zoom-in').onclick = () => canvas.setZoom(canvas.getZoom() * 1.1);
+                document.getElementById('zoom-out').onclick = () => canvas.setZoom(canvas.getZoom() / 1.1);
+                document.getElementById('zoom-reset').onclick = () => canvas.setZoom(1);
+
+                canvas.on('mouse:up', (opt) => {
+                    if (opt.target && opt.target.data?.type === 'slot') {
+                        toggleSlotStatus(opt.target);
+                    }
+                });
+
+                canvas.selection = false;
+
+                // Load map with cache busting
+                const mapUrl = `maps/${LOTTERY_MAP}.json?t=${Date.now()}`;
+                console.log('[PWA] Fetching map:', mapUrl);
+                
+                const response = await fetch(mapUrl);
+                if (!response.ok) throw new Error('HTTP ' + response.status + ' - Map file not found');
+                
+                const jsonText = await response.text();
+                if (!jsonText) throw new Error('Map file is empty');
+
+                importFromJSON(jsonText, () => {
+                    console.log('[PWA] Map imported successfully');
+                    canvas.forEachObject(obj => {
+                        obj.selectable = false;
+                        obj.evented = true;
+                    });
+                    canvas.discardActiveObject();
+                    canvas.requestRenderAll();
+                    document.title = `${LOTTERY_MAP} - 停車場抽選`;
+                });
+
+            } catch (err) {
+                showError(err.message);
+            }
+
+            window.onbeforeunload = null;
+        });
+    </script>
+</body>
+</html>
