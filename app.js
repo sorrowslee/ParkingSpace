@@ -72,13 +72,8 @@ function bindEvents() {
     canvas.on('mouse:down', (opt) => {
         if (canvas.isDragging || canvas.isDrawingMode) return;
         
-        // Lottery Mode Interaction
-        if (currentMode === 'lottery') {
-            if (opt.target && opt.target.data?.type === 'slot') {
-                toggleSlotStatus(opt.target);
-            }
-            return;
-        }
+        // Lottery Mode: Interaction handled on mouse:up to avoid conflict with pan
+        if (window.currentMode === 'lottery') return;
 
         // Editor Mode Tools
         // If using Pillar, Road or Eraser, we don't want to select/drag existing objects...
@@ -165,6 +160,15 @@ function bindEvents() {
     // Keyboard Shortcuts (Ctrl+C, Ctrl+V)
     window.addEventListener('keydown', handleKeyPress);
 
+    canvas.on('mouse:up', (opt) => {
+        // Lottery Mode: Toggle slot status if we didn't drag
+        if (window.currentMode === 'lottery' && !canvas.wasDragging) {
+            if (opt.target && opt.target.data?.type === 'slot') {
+                toggleSlotStatus(opt.target);
+            }
+        }
+    });
+
     // Modal
     document.getElementById('btn-modal-cancel').onclick = closeModal;
     document.getElementById('btn-modal-save').onclick = saveSlotProperties;
@@ -180,7 +184,7 @@ async function checkForParams() {
     const targetMap = params.get('use');
 
     if (targetMap) {
-        document.body.classList.add('lottery-only');
+        document.body.classList.add('lottery-mode');
         setMode('lottery');
         
         try {
@@ -206,7 +210,7 @@ async function checkForParams() {
 let clipboard = null;
 
 function handleKeyPress(e) {
-    if (currentMode === 'lottery') return; // Disable shortcuts in lottery mode
+    if (window.currentMode === 'lottery') return; // Disable shortcuts in lottery mode
     
     // Ctrl+S: Save
     if (e.ctrlKey && e.key === 's') {
@@ -261,16 +265,23 @@ function updateAppTitle() {
 // Initial Title
 updateAppTitle();
 
-let currentMode = 'editor';
+window.currentMode = 'editor';
 
 function setMode(mode) {
-    currentMode = mode;
+    window.currentMode = mode;
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.control-group').forEach(c => c.classList.remove('active'));
     
     document.getElementById(`btn-${mode}-mode`).classList.add('active');
     document.getElementById(`${mode}-controls`).classList.add('active');
-    document.getElementById('mode-display').innerText = `Mode: ${mode.toUpperCase()}`;
+    // document.getElementById('mode-display').innerText = `Mode: ${mode.toUpperCase()}`;
+
+    // Update body class for conditional styling
+    if (mode === 'lottery') {
+        document.body.classList.add('lottery-mode');
+    } else {
+        document.body.classList.remove('lottery-mode');
+    }
 
     // Canvas interactivity based on mode
     if (mode === 'lottery') {
@@ -348,8 +359,12 @@ function persistToLocal() {
 function highlightSlot(slot) {
     if (!slot) return;
     
-    // Select the slot
-    canvas.setActiveObject(slot);
+    // Select the slot only in editor mode
+    if (window.currentMode === 'editor') {
+        canvas.setActiveObject(slot);
+    } else {
+        canvas.discardActiveObject();
+    }
     
     // Correctly pan the viewport to center the object without moving its coordinates
     const center = slot.getCenterPoint();

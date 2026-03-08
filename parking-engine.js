@@ -23,48 +23,109 @@ function initCanvas() {
     });
 
     // Infinite Canvas Panning + Tool Selection Logic
+    // Unified Input Handling for PC and iPad
+    let dragThreshold = 10;
+    let initialTouchDistance = 0;
+    let initialZoom = 1;
+
     canvas.on('mouse:down', function(opt) {
         let evt = opt.e;
-        // Alt key OR Right Click (button 3) starts panning
-        if (evt.altKey === true || isPanning || opt.button === 3) {
-            this.isDragging = true;
+        const isLottery = window.currentMode === 'lottery';
+        
+        // Potential panning if Alt, Right Click, Background, or Lottery mode
+        if (evt.altKey === true || opt.button === 3 || !opt.target || isLottery) {
+            this.isPreparingDrag = true;
+            this.isDragging = false;
+            
+            // Disable selection box if we are panning or in lottery mode
             this.selection = false;
-            this.lastPosX = evt.clientX;
-            this.lastPosY = evt.clientY;
-            // Prevent selection on right click
-            canvas.discardActiveObject();
-        } else if (currentTool === 'pillar' || currentTool === 'eraser' || currentTool === 'road') {
-            // Disable selection box when using these tools
-            this.selection = false;
+
+            const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+            const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+            
+            this.lastPosX = clientX;
+            this.lastPosY = clientY;
+            this.startX = clientX;
+            this.startY = clientY;
+
+            // Store initial distance for pinch-to-zoom
+            if (evt.touches && evt.touches.length === 2) {
+                initialTouchDistance = Math.hypot(
+                    evt.touches[0].clientX - evt.touches[1].clientX,
+                    evt.touches[0].clientY - evt.touches[1].clientY
+                );
+                initialZoom = canvas.getZoom();
+                this.isPreparingDrag = false; // Zooming, not panning
+                this.selection = false; // Explicitly disable selection for pinch
+            }
         }
     });
 
     canvas.on('mouse:move', function(opt) {
+        let e = opt.e;
+        
+        // Handle Pinch-to-Zoom
+        if (e.touches && e.touches.length === 2) {
+            this.isPreparingDrag = false;
+            this.isDragging = false;
+            this.selection = false;
+
+            const currentDistance = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            
+            if (initialTouchDistance === 0) {
+                initialTouchDistance = currentDistance;
+                initialZoom = canvas.getZoom();
+            } else {
+                let zoom = (currentDistance / initialTouchDistance) * initialZoom;
+                if (zoom > 5) zoom = 5;
+                if (zoom < 0.2) zoom = 0.2;
+                
+                // Zoom at center of fingers
+                const centerX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                const centerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+                const canvasBox = canvas.getElement().getBoundingClientRect();
+                
+                canvas.zoomToPoint({ 
+                    x: centerX - canvasBox.left, 
+                    y: centerY - canvasBox.top 
+                }, zoom);
+            }
+            if (e.cancelable) e.preventDefault();
+            return;
+        }
+
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+        // Transition from Preparing to Active Drag
+        if (this.isPreparingDrag && !this.isDragging) {
+            const moveX = Math.abs(clientX - this.startX);
+            const moveY = Math.abs(clientY - this.startY);
+            if (moveX > dragThreshold || moveY > dragThreshold) {
+                this.isDragging = true;
+                canvas.discardActiveObject();
+                this.selection = false;
+            }
+        }
+
         if (this.isDragging) {
-            let e = opt.e;
             let vpt = this.viewportTransform;
-            vpt[4] += e.clientX - this.lastPosX;
-            vpt[5] += e.clientY - this.lastPosY;
+            vpt[4] += clientX - this.lastPosX;
+            vpt[5] += clientY - this.lastPosY;
             this.requestRenderAll();
-            this.lastPosX = e.clientX;
-            this.lastPosY = e.clientY;
+            this.lastPosX = clientX;
+            this.lastPosY = clientY;
         }
 
         const pointer = canvas.getPointer(opt.e);
-
-        // Handle Continuous Pillar/Wall Brush
-        if (currentTool === 'pillar' && opt.e.buttons === 1 && !this.isDragging) {
-            addPillar(pointer.x, pointer.y, false);
-        }
-
-        // Handle Continuous Road Brush
-        if (currentTool === 'road' && opt.e.buttons === 1 && !this.isDragging) {
-            addRoad(pointer.x, pointer.y);
-        }
-
-        // Handle Continuous Eraser Brush
-        if (currentTool === 'eraser' && opt.e.buttons === 1 && !this.isDragging) {
-            if (opt.target) {
+        // Drawing tools (PC only, usually)
+        if (!this.isDragging && !this.isPreparingDrag) {
+            if (currentTool === 'pillar' && opt.e.buttons === 1) addPillar(pointer.x, pointer.y, false);
+            if (currentTool === 'road' && opt.e.buttons === 1) addRoad(pointer.x, pointer.y);
+            if (currentTool === 'eraser' && opt.e.buttons === 1 && opt.target) {
                 canvas.remove(opt.target);
                 canvas.requestRenderAll();
             }
@@ -73,15 +134,20 @@ function initCanvas() {
 
     canvas.on('mouse:up', function(opt) {
         this.setViewportTransform(this.viewportTransform);
+        this.wasDragging = this.isDragging;
         this.isDragging = false;
-        this.selection = true;
+        this.isPreparingDrag = false;
+        
+        // Only restore selection if in editor mode
+        this.selection = window.currentMode === 'editor';
+        
+        initialTouchDistance = 0;
     });
 
-    // Zoom Handling (simplified)
+    // Zoom Handling (PC Mouse Wheel)
     canvas.on('mouse:wheel', function(opt) {
         let delta = opt.e.deltaY;
-        let zoom = canvas.getZoom();
-        zoom *= 0.999 ** delta;
+        let zoom = canvas.getZoom() * (0.999 ** delta);
         if (zoom > 5) zoom = 5;
         if (zoom < 0.2) zoom = 0.2;
         canvas.zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY }, zoom);
@@ -103,13 +169,25 @@ function initCanvas() {
             canvas.requestRenderAll();
         }
     });
-
     // Initial Resize
     window.addEventListener('resize', () => {
         canvas.setDimensions({
-            width: window.innerWidth - 320,
+            width: window.innerWidth - 200,
             height: window.innerHeight
         });
+    });
+
+    // Keep labels upright during rotation
+    canvas.on('object:rotating', (opt) => {
+        if (opt.target && opt.target.data?.type === 'slot') {
+            updateSlotLabelRotation(opt.target);
+        }
+    });
+
+    canvas.on('object:modified', (opt) => {
+        if (opt.target && opt.target.data?.type === 'slot') {
+            updateSlotLabelRotation(opt.target);
+        }
     });
 }
 
@@ -167,7 +245,18 @@ function createParkingSlot(x, y, angle = 0) {
     });
 
     canvas.add(group);
+    updateSlotLabelRotation(group);
     canvas.setActiveObject(group);
+}
+
+function updateSlotLabelRotation(slot) {
+    if (!slot || slot.data?.type !== 'slot') return;
+    const textObj = slot._objects.find(o => o.type === 'text');
+    if (textObj) {
+        // Set text angle to the negative of group angle to keep it at 0 absolute degrees
+        textObj.set('angle', -slot.angle);
+        canvas.requestRenderAll();
+    }
 }
 
 function addPillar(x, y, single = true) {
@@ -373,6 +462,9 @@ function importFromJSON(jsonString, callback) {
                     selectable: false,
                     hoverCursor: 'default'
                 });
+            }
+            if (obj.data?.type === 'slot') {
+                updateSlotLabelRotation(obj);
             }
         });
         canvas.renderAll();

@@ -18,6 +18,24 @@ function initLottery() {
     if (clearBtn) {
         clearBtn.onclick = clearAllHighlights;
     }
+
+    // Bind ID search buttons
+    const selectBtn = document.getElementById('btn-lottery-id-select');
+    if (selectBtn) {
+        selectBtn.onclick = () => {
+            const input = document.getElementById('input-lottery-select');
+            const id = input.value;
+            if (setSlotOccupiedById(id, true)) {
+                input.value = ''; // Clear input on success
+            }
+        };
+    }
+
+    // Bind Home Elevator Button
+    const homeBtn = document.getElementById('btn-lottery-home');
+    if (homeBtn) {
+        homeBtn.onclick = centerOnHomeElevator;
+    }
 }
 
 function toggleSlotStatus(slot) {
@@ -163,4 +181,36 @@ function updateSlotVisual(slot) {
  */
 function isObjectInRect(obj, rect) {
     return obj.isOnScreen();
+}
+
+function setSlotOccupiedById(id, isOccupied) {
+    if (!id) return false;
+    const slots = getAllSlots();
+    const slot = slots.find(s => s.data?.id === id);
+    
+    if (slot) {
+        slot.data.isOccupied = isOccupied;
+        updateSlotVisual(slot);
+        persistToLocal();
+        
+        // Also pan to the slot so user can see it
+        if (typeof highlightSlot === 'function') {
+            highlightSlot(slot);
+        }
+        return true;
+    } else {
+        alert(`找不到車位號碼: ${id}`);
+        return false;
+    }
+}
+
+function centerOnHomeElevator() {
+    const homeElevator = canvas.getObjects().find(o => o.data?.type === 'elevator-home');
+    if (homeElevator) {
+        if (typeof highlightSlot === 'function') {
+            highlightSlot(homeElevator);
+        }
+    } else {
+        alert('地圖中找不到「家電梯」！');
+    }
 }

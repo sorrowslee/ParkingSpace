@@ -32,7 +32,7 @@ body {
 
 /* Sidebar Styling */
 .sidebar {
-    width: 320px;
+    width: 320px; /* Default wide sidebar for Editor */
     background: var(--sidebar-bg);
     backdrop-filter: blur(12px);
     border-right: 1px solid var(--border-color);
@@ -40,6 +40,11 @@ body {
     display: flex;
     flex-direction: column;
     z-index: 100;
+    transition: width 0.3s ease;
+}
+
+.lottery-mode .sidebar {
+    width: 200px; /* Adjusted slim sidebar for Lottery */
 }
 
 .logo h1 {
@@ -100,7 +105,13 @@ h3 {
 .tool-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
+    gap: 12px;
+}
+
+.lottery-mode .tool-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
 .tool-btn {
